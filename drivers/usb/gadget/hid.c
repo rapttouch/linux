@@ -17,6 +17,7 @@
 #include <linux/list.h>
 #include <linux/module.h>
 #include <linux/usb/composite.h>
+#include <linux/usb/g_hid.h>
 
 #include "gadget_chips.h"
 #define DRIVER_DESC		"HID Gadget"
@@ -30,6 +31,11 @@
 /*-------------------------------------------------------------------------*/
 
 /*
+ * The HID device to build into the driver.
+ */
+#include "hid_device.h"
+
+/*
  * kbuild is not very cooperative with respect to linking separately
  * compiled library objects into one module.  So for now we won't use
  * separate compilation ... ensuring init/exit sections work to shrink
@@ -37,7 +43,6 @@
  * a "gcc --combine ... part1.c part2.c part3.c ... " build would.
  */
 #include "f_hid.c"
-
 
 struct hidg_func_node {
 	struct list_head node;
@@ -244,6 +249,12 @@ MODULE_LICENSE("GPL");
 static int __init hidg_init(void)
 {
 	int status;
+	status = platform_device_register(&hid_device);
+	if (status < 0)
+	{
+		platform_device_unregister(&hid_device);
+		return status;
+	}
 
 	status = platform_driver_probe(&hidg_plat_driver,
 				hidg_plat_driver_probe);
@@ -261,6 +272,10 @@ module_init(hidg_init);
 static void __exit hidg_cleanup(void)
 {
 	platform_driver_unregister(&hidg_plat_driver);
+	platform_device_unregister(&hid_device);
 	usb_composite_unregister(&hidg_driver);
 }
 module_exit(hidg_cleanup);
+
+
+

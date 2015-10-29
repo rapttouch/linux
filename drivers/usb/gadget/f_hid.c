@@ -23,6 +23,9 @@
 static int major, minors;
 static struct class *hidg_class;
 
+#define DEBUG
+#define VERBOSE_DEBUG
+
 /*-------------------------------------------------------------------------*/
 /*                            HID gadget struct                            */
 
@@ -377,6 +380,7 @@ static int hidg_setup(struct usb_function *f,
 	struct usb_request		*req  = cdev->req;
 	int status = 0;
 	__u16 value, length;
+	int i;
 
 	value	= __le16_to_cpu(ctrl->wValue);
 	length	= __le16_to_cpu(ctrl->wLength);
@@ -387,7 +391,16 @@ static int hidg_setup(struct usb_function *f,
 	switch ((ctrl->bRequestType << 8) | ctrl->bRequest) {
 	case ((USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8
 		  | HID_REQ_GET_REPORT):
-		VDBG(cdev, "get_report\n");
+		VDBG(cdev, "get_report 0x%02x\n", value);
+
+		/* If we have an appropriate constant report, send it */
+		for( i = 0; i < sizeof(constant_reports) / sizeof(constant_reports[0]); i++) {
+			if ( constant_reports[i].report[0] == (value&0xff) ) {
+				length = min_t(unsigned, length, constant_reports[i].length);
+				memcpy(req->buf, constant_reports[i].report, length);
+				goto respond;
+			}
+		}
 
 		/* send an empty report */
 		length = min_t(unsigned, length, hidg->report_length);
